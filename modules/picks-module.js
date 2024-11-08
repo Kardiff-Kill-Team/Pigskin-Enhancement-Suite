@@ -33,7 +33,7 @@ const picksModule = {
             if (!this.isLockDropdown(dropdown)) {
                 dropdown.addEventListener('change', () => {
                     this.updatePicksDisplay();
-                    window.lockModule?.updateLockDropdown();
+                    window['lock-module']?.updateLockDropdown();
                 });
             }
         });

@@ -1,8 +1,9 @@
+// modules/picksHistoryModule.js
 const picksHistoryModule = {
     async initialize() {
         this.addStyles();
         await this.createHistoryPanel();
-        
+
         if (window.location.pathname.includes('fbpicks')) {
             await this.setupFormHandling();
         }
@@ -81,6 +82,17 @@ const picksHistoryModule = {
             .export-options.visible {
                 display: block;
             }
+
+            .export-option-btn {
+                margin: 5px;
+                padding: 5px 10px;
+            }
+
+            .history-empty-state {
+                text-align: center;
+                padding: 20px;
+                color: #6c757d;
+            }
         `);
     },
 
@@ -95,7 +107,7 @@ const picksHistoryModule = {
         panel.innerHTML = `
             <div class="psm-panel-header">
                 <strong>Picks History</strong>
-                <button class="psm-button" style="padding: 2px 6px;">_</button>
+                <button class="psm-button collapse-btn" style="padding: 2px 6px;">_</button>
             </div>
             <div class="psm-panel-content">
                 <div class="picks-history-stats"></div>
@@ -108,51 +120,45 @@ const picksHistoryModule = {
                     <button class="psm-button clear-btn" style="background: #dc3545;">Clear History</button>
                 </div>
                 <div class="export-options">
-                    <button class="psm-button" data-format="json">JSON</button>
-                    <button class="psm-button" data-format="csv">CSV</button>
+                    <button class="psm-button export-option-btn" data-format="json">JSON</button>
+                    <button class="psm-button export-option-btn" data-format="csv">CSV</button>
                 </div>
             </div>
         `;
 
         document.body.appendChild(panel);
 
-        // Setup event listeners
         this.setupPanelListeners(panel);
         await this.updateWeeksList();
         await this.updateStats();
     },
 
     async setupPanelListeners(panel) {
-        // Collapse button
-        const collapseBtn = panel.querySelector('.psm-panel-header .psm-button');
+        const collapseBtn = panel.querySelector('.collapse-btn');
         const content = panel.querySelector('.psm-panel-content');
         collapseBtn.addEventListener('click', () => {
             content.style.display = content.style.display === 'none' ? 'block' : 'none';
             collapseBtn.textContent = content.style.display === 'none' ? '□' : '_';
         });
 
-        // Week selector
         const weekSelector = panel.querySelector('.week-selector');
         weekSelector.addEventListener('change', () => {
             this.displayPicksForWeek(weekSelector.value);
         });
 
-        // Export button
         const exportBtn = panel.querySelector('.export-btn');
         const exportOptions = panel.querySelector('.export-options');
         exportBtn.addEventListener('click', () => {
             exportOptions.classList.toggle('visible');
         });
 
-        // Export format buttons
-        panel.querySelectorAll('.export-options button').forEach(btn => {
+        panel.querySelectorAll('.export-option-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.exportPicks(btn.dataset.format);
                 exportOptions.classList.remove('visible');
             });
         });
 
-        // Clear button
         const clearBtn = panel.querySelector('.clear-btn');
         clearBtn.addEventListener('click', () => this.handleClearHistory());
     },
@@ -162,12 +168,10 @@ const picksHistoryModule = {
         const weekSelector = document.querySelector('.week-selector');
         if (!weekSelector) return;
 
-        // Clear existing options except the first one
         while (weekSelector.options.length > 1) {
             weekSelector.remove(1);
         }
 
-        // Add options for each week
         Object.keys(allPicks)
             .sort((a, b) => parseInt(b) - parseInt(a))
             .forEach(week => {
@@ -219,7 +223,7 @@ const picksHistoryModule = {
             });
         });
 
-        stats.lockSuccessRate = stats.totalLocks ? 
+        stats.lockSuccessRate = stats.totalLocks ?
             ((stats.locksWon / stats.totalLocks) * 100).toFixed(1) : 0;
 
         return stats;
@@ -233,7 +237,7 @@ const picksHistoryModule = {
         const weekPicks = allPicks[week] || [];
 
         if (weekPicks.length === 0) {
-            content.innerHTML = `<div class="empty-state">No picks found for Week ${week}</div>`;
+            content.innerHTML = `<div class="history-empty-state">No picks found for Week ${week}</div>`;
             return;
         }
 
@@ -276,7 +280,9 @@ const picksHistoryModule = {
         const picks = {
             timestamp: Date.now(),
             week: this.determineCurrentWeek(),
-            selections: {}
+            selections: {},
+            source: 'Pigskin-Enhancement-Suite',
+            version: '1.0.0'
         };
 
         document.querySelectorAll('select').forEach(dropdown => {
@@ -310,29 +316,51 @@ const picksHistoryModule = {
     async exportPicks(format) {
         const allPicks = await storageUtils.get('picksHistory', {});
         let exportData;
+        const timestamp = new Date().toISOString().split('T')[0];
+        const filename = `pigskin_picks_history_${timestamp}`;
 
         if (format === 'json') {
             exportData = JSON.stringify(allPicks, null, 2);
+            this.downloadFile(exportData, `${filename}.json`, 'application/json');
         } else if (format === 'csv') {
             exportData = this.convertToCSV(allPicks);
+            this.downloadFile(exportData, `${filename}.csv`, 'text/csv');
         }
+    },
 
-        const blob = new Blob([exportData], { 
-            type: format === 'json' ? 'application/json' : 'text/csv' 
-        });
+    downloadFile(content, filename, type) {
+        const blob = new Blob([content], { type });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
+
         a.href = url;
-        a.download = `picks_history.${format}`;
+        a.download = filename;
+        a.style.display = 'none';
+
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
     },
 
     convertToCSV(picksHistory) {
-        const rows = [['Week', 'Timestamp', 'Game', 'Team', 'Locked', 'Spread', 'Result']];
-        
+        const headers = [
+            'Week',
+            'Timestamp',
+            'Game',
+            'Team',
+            'Locked',
+            'Spread',
+            'Result',
+            'Source',
+            'Version'
+        ];
+
+        const rows = [headers];
+
         Object.entries(picksHistory).forEach(([week, weekPicks]) => {
             weekPicks.forEach(pick => {
                 Object.entries(pick.selections).forEach(([game, selection]) => {
@@ -343,14 +371,20 @@ const picksHistoryModule = {
                         selection.team,
                         selection.isLocked ? 'Yes' : 'No',
                         selection.spread || '',
-                        selection.won === true ? 'Won' : 
-                        selection.won === false ? 'Lost' : 'Unknown'
+                        selection.won === true ? 'Won' :
+                            selection.won === false ? 'Lost' : 'Unknown',
+                        pick.source || 'Pigskin-Enhancement-Suite',
+                        pick.version || '1.0.0'
                     ]);
                 });
             });
         });
 
-        return rows.map(row => row.join(',')).join('\n');
+        return rows.map(row =>
+            row.map(cell =>
+                `"${String(cell).replace(/"/g, '""')}"`
+            ).join(',')
+        ).join('\n');
     },
 
     async handleClearHistory() {
@@ -361,10 +395,10 @@ const picksHistoryModule = {
         await storageUtils.set('picksHistory', {});
         await this.updateWeeksList();
         await this.updateStats();
-        
+
         const content = document.querySelector('.picks-history-content');
         if (content) {
-            content.innerHTML = '<div class="empty-state">No picks history</div>';
+            content.innerHTML = '<div class="history-empty-state">No picks history</div>';
         }
 
         uiUtils.showNotification('Picks history cleared', 'success');
@@ -372,7 +406,7 @@ const picksHistoryModule = {
 
     isLockDropdown(dropdown) {
         return dropdown.name?.toLowerCase().includes('lock') ||
-               dropdown.id?.toLowerCase().includes('lock');
+            dropdown.id?.toLowerCase().includes('lock');
     },
 
     isTeamLocked(value) {

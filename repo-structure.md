@@ -21,7 +21,9 @@ pigskin-enhancements/
 ## Installation
 
 1. Install a userscript manager (e.g., Tampermonkey)
-2. Install the main script from: `https://raw.githubusercontent.com/[username]/pigskin-enhancements/main/main.js`
+2. Install the main script from: `https://raw.githubusercontent.com/Kardiff-Kill-Team/pigskin-enhancements/main/main.js`
+
+
 
 ## Features
 
