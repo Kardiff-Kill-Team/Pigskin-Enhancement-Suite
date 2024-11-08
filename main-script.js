@@ -5,6 +5,10 @@
 // @description  Comprehensive enhancement suite for Pigskin Mania
 // @author       Kardiff
 // @match        http://pigskinmania.net/*
+// @match        https://pigskinmania.net/*
+// @grant        GM.setValue
+// @grant        GM.getValue
+// @grant        GM.xmlHttpRequest
 // @require      https://raw.githubusercontent.com/Kardiff-Kill-Team/Pigskin-Enhancement-Suite/main/modules/utils/path-validator.js
 // @require      https://raw.githubusercontent.com/Kardiff-Kill-Team/Pigskin-Enhancement-Suite/main/modules/utils/storage-utils.js
 // @require      https://raw.githubusercontent.com/Kardiff-Kill-Team/Pigskin-Enhancement-Suite/main/modules/utils/ui-utils.js
@@ -16,19 +20,57 @@
 // @require      https://raw.githubusercontent.com/Kardiff-Kill-Team/Pigskin-Enhancement-Suite/main/modules/picks-history-module.js
 // @require      https://raw.githubusercontent.com/Kardiff-Kill-Team/Pigskin-Enhancement-Suite/main/modules/user-id-module.js
 // @require      https://raw.githubusercontent.com/Kardiff-Kill-Team/Pigskin-Enhancement-Suite/main/modules/standings-module.js
-// @grant        GM.setValue
-// @grant        GM.getValue
-// @grant        GM.xmlHttpRequest
 // @downloadURL  https://raw.githubusercontent.com/Kardiff-Kill-Team/Pigskin-Enhancement-Suite/main/main-script.js
 // @updateURL    https://raw.githubusercontent.com/Kardiff-Kill-Team/Pigskin-Enhancement-Suite/main/main-script.js
 // ==/UserScript==
 
 (async function() {
     'use strict';
+// Debug logging function
+    const debugLog = (message, data = null) => {
+        const styles = 'background: #0066cc; color: white; padding: 2px 5px; border-radius: 3px;';
+        if (data) {
+            console.log('%c[PigSkin Suite Debug]%c ' + message, styles, '', data);
+        } else {
+            console.log('%c[PigSkin Suite Debug]%c ' + message, styles, '');
+        }
+    };
+
+    // Add immediate checks for utilities
+    debugLog('Script Starting');
+    debugLog('Initial Utils Check:', {
+        uiUtils: !!window.uiUtils,
+        storageUtils: !!window.storageUtils,
+        pathValidator: !!window.pathValidator
+    });
+
+    // Wait for utilities to be available
+    const waitForUtils = async () => {
+        let attempts = 0;
+        const maxAttempts = 50;
+        while (attempts < maxAttempts) {
+            debugLog(`Attempt ${attempts + 1} checking for utilities`);
+            if (window.uiUtils && window.storageUtils && window.pathValidator) {
+                debugLog('All utilities loaded successfully');
+                return true;
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+
+            // Log which utilities are missing
+            const missing = {
+                uiUtils: !window.uiUtils,
+                storageUtils: !window.storageUtils,
+                pathValidator: !window.pathValidator
+            };
+            debugLog('Missing utilities:', missing);
+        }
+        throw new Error('Utilities failed to load after ' + maxAttempts + ' attempts');
+    };
 
     // Configuration
     const config = {
-        debug: false,
+        debug: true, // Set to true to help with debugging
         version: '1.0.0',
         repository: {
             owner: 'Kardiff-Kill-Team',
@@ -56,23 +98,6 @@
                 enabled: true,
                 version: '1.0.0'
             }
-        },
-        storage: {
-            prefix: 'pses_',
-            version: '1.0.0'
-        },
-        ui: {
-            theme: {
-                primary: '#007bff',
-                success: '#28a745',
-                warning: '#ffc107',
-                danger: '#dc3545',
-                info: '#17a2b8'
-            },
-            notifications: {
-                duration: 3000,
-                position: 'top-right'
-            }
         }
     };
 
@@ -80,11 +105,10 @@
     class ModuleManager {
         constructor() {
             this.loadedModules = new Map();
-            this.initializeUI();
         }
 
-        initializeUI() {
-            uiUtils.addStyles(`
+        async initializeUI() {
+            const styles = `
                 .psm-status {
                     position: fixed;
                     bottom: 10px;
@@ -104,7 +128,7 @@
                     width: 8px;
                     height: 8px;
                     border-radius: 50%;
-                    background: ${config.ui.theme.success};
+                    background: #28a745;
                 }
 
                 .psm-status-text {
@@ -118,7 +142,10 @@
                         font-size: 10px;
                     }
                 }
-            `);
+            `;
+
+            // Add styles using the global addStyles method
+            window.uiUtils.addStyles(styles);
 
             const status = document.createElement('div');
             status.className = 'psm-status';
@@ -127,51 +154,43 @@
                 <span class="psm-status-text">PigSkin Suite v${config.version}</span>
             `;
             document.body.appendChild(status);
-
-            // Add version check
-            this.checkVersion();
-        }
-
-        async checkVersion() {
-            try {
-                const response = await fetch(`${config.repository.rawBaseUrl}/version.json`);
-                const versionInfo = await response.json();
-
-                if (versionInfo.version !== config.version) {
-                    uiUtils.showNotification(
-                        'A new version is available. Please update your script.',
-                        'info',
-                        10000
-                    );
-                }
-            } catch (error) {
-                console.error('Version check failed:', error);
-            }
         }
 
         async initialize() {
-            const currentPath = window.location.pathname;
+            try {
+                // Wait for utilities to be available
+                await waitForUtils();
 
-            // Initialize global utilities
-            await storageUtils.initialize();
-            await uiUtils.initialize();
+                // Initialize UI
+                await this.initializeUI();
 
-            // Initialize page-specific modules
-            for (const [moduleName, moduleConfig] of Object.entries(config.modules)) {
-                if (moduleConfig.enabled && moduleConfig.paths.some(path => currentPath.includes(path))) {
-                    await this.initializeModule(moduleName);
+                // Initialize utilities
+                await window.storageUtils.initialize();
+                await window.uiUtils.initialize();
+
+                const currentPath = window.location.pathname;
+
+                // Initialize page-specific modules
+                for (const [moduleName, moduleConfig] of Object.entries(config.modules)) {
+                    if (moduleConfig.enabled && moduleConfig.paths.some(path => currentPath.includes(path))) {
+                        await this.initializeModule(moduleName);
+                    }
                 }
-            }
 
-            // Log initialization in debug mode
-            if (config.debug) {
-                console.log('Initialized modules:', Array.from(this.loadedModules.keys()));
+                if (config.debug) {
+                    console.log('Initialized modules:', Array.from(this.loadedModules.keys()));
+                }
+
+            } catch (error) {
+                console.error('Module initialization error:', error);
+                if (window.uiUtils) {
+                    window.uiUtils.showNotification('Failed to initialize some modules', 'error');
+                }
             }
         }
 
         async initializeModule(moduleName) {
             try {
-                // Update to handle kebab-case to camelCase conversion for window object
                 const windowModuleName = moduleName.split('-')
                     .map((part, index) => index === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1))
                     .join('') + 'Module';
@@ -186,31 +205,25 @@
                 }
             } catch (error) {
                 console.error(`Failed to initialize ${moduleName}:`, error);
-                uiUtils.showNotification(
-                    `Failed to initialize ${moduleName}. Some features may be unavailable.`,
-                    'error'
-                );
+                if (window.uiUtils) {
+                    window.uiUtils.showNotification(
+                        `Failed to initialize ${moduleName}. Some features may be unavailable.`,
+                        'error'
+                    );
+                }
             }
-        }
-
-        getLoadedModules() {
-            return Array.from(this.loadedModules.keys());
-        }
-
-        isModuleLoaded(moduleName) {
-            return this.loadedModules.has(moduleName);
         }
     }
 
     // Error Handler
     window.addEventListener('error', (event) => {
-        if (config.debug) {
-            console.error('Script error:', event.error);
+        console.error('Script error:', event.error);
+        if (window.uiUtils) {
+            window.uiUtils.showNotification(
+                'An error occurred. Please check the console for details.',
+                'error'
+            );
         }
-        uiUtils.showNotification(
-            'An error occurred. Please check the console for details.',
-            'error'
-        );
     });
 
     // Initialize
@@ -219,9 +232,11 @@
         await manager.initialize();
     } catch (error) {
         console.error('Failed to initialize Pigskin Suite:', error);
-        uiUtils.showNotification(
-            'Failed to initialize the enhancement suite.',
-            'error'
-        );
+        if (window.uiUtils) {
+            window.uiUtils.showNotification(
+                'Failed to initialize the enhancement suite.',
+                'error'
+            );
+        }
     }
 })();
