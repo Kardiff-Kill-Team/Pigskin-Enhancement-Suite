@@ -102,71 +102,74 @@
     };
 
     // Module Manager
+    // Module Manager with modified initialization
     class ModuleManager {
         constructor() {
             this.loadedModules = new Map();
         }
 
         async initializeUI() {
-            const styles = `
+            // Create and append style element directly instead of using uiUtils.addStyles
+            const styleElement = document.createElement('style');
+            styleElement.textContent = `
+            .psm-status {
+                position: fixed;
+                bottom: 10px;
+                left: 10px;
+                background: white;
+                padding: 5px 10px;
+                border-radius: 5px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                font-size: 12px;
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .psm-status-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: #28a745;
+            }
+
+            .psm-status-text {
+                color: #333;
+            }
+
+            @media (max-width: 768px) {
                 .psm-status {
-                    position: fixed;
-                    bottom: 10px;
-                    left: 10px;
-                    background: white;
-                    padding: 5px 10px;
-                    border-radius: 5px;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                    font-size: 12px;
-                    z-index: 9999;
-                    display: flex;
-                    align-items: center;
-                    gap: 5px;
+                    bottom: 5px;
+                    left: 5px;
+                    font-size: 10px;
                 }
-
-                .psm-status-dot {
-                    width: 8px;
-                    height: 8px;
-                    border-radius: 50%;
-                    background: #28a745;
-                }
-
-                .psm-status-text {
-                    color: #333;
-                }
-
-                @media (max-width: 768px) {
-                    .psm-status {
-                        bottom: 5px;
-                        left: 5px;
-                        font-size: 10px;
-                    }
-                }
-            `;
-
-            // Add styles using the global addStyles method
-            window.uiUtils.addStyles(styles);
+            }
+        `;
+            document.head.appendChild(styleElement);
 
             const status = document.createElement('div');
             status.className = 'psm-status';
             status.innerHTML = `
-                <span class="psm-status-dot"></span>
-                <span class="psm-status-text">PigSkin Suite v${config.version}</span>
-            `;
+            <span class="psm-status-dot"></span>
+            <span class="psm-status-text">PigSkin Suite v${config.version}</span>
+        `;
             document.body.appendChild(status);
         }
 
         async initialize() {
             try {
-                // Wait for utilities to be available
-                await waitForUtils();
-
-                // Initialize UI
+                // Initialize UI first
                 await this.initializeUI();
 
-                // Initialize utilities
-                await window.storageUtils.initialize();
-                await window.uiUtils.initialize();
+                // Initialize utilities if they exist
+                if (window.storageUtils && typeof window.storageUtils.initialize === 'function') {
+                    await window.storageUtils.initialize();
+                }
+
+                if (window.uiUtils && typeof window.uiUtils.initialize === 'function') {
+                    await window.uiUtils.initialize();
+                }
 
                 const currentPath = window.location.pathname;
 
@@ -183,8 +186,11 @@
 
             } catch (error) {
                 console.error('Module initialization error:', error);
-                if (window.uiUtils) {
+                // Use a basic alert if uiUtils isn't available
+                if (window.uiUtils && typeof window.uiUtils.showNotification === 'function') {
                     window.uiUtils.showNotification('Failed to initialize some modules', 'error');
+                } else {
+                    console.error('Failed to initialize some modules');
                 }
             }
         }
@@ -196,7 +202,7 @@
                     .join('') + 'Module';
 
                 const module = window[windowModuleName];
-                if (module) {
+                if (module && typeof module.initialize === 'function') {
                     await module.initialize();
                     this.loadedModules.set(moduleName, true);
                     if (config.debug) {
@@ -205,7 +211,7 @@
                 }
             } catch (error) {
                 console.error(`Failed to initialize ${moduleName}:`, error);
-                if (window.uiUtils) {
+                if (window.uiUtils && typeof window.uiUtils.showNotification === 'function') {
                     window.uiUtils.showNotification(
                         `Failed to initialize ${moduleName}. Some features may be unavailable.`,
                         'error'
