@@ -192,4 +192,5 @@ const spreadsModule = {
     }
 };
 
-window.spreadsModule = spreadsModule;
+// At the end of spreads-module.js
+window.spreadsModule = spreadsModule;  // Change this from window['spreads-module']

@@ -26,6 +26,20 @@
 
 (async function() {
     'use strict';
+
+    // Debug check for modules
+    console.log('Checking for required modules:', {
+        uiUtils: !!window.uiUtils,
+        storageUtils: !!window.storageUtils,
+        spreadsModule: !!window.spreadsModule,
+        picksModule: !!window.picksModule,
+        timeModule: !!window.timeModule,
+        wikiTeamModule: !!window.wikiTeamModule,
+        lockModule: !!window.lockModule,
+        picksHistoryModule: !!window.picksHistoryModule,
+        userIdModule: !!window.userIdModule,
+        standingsModule: !!window.standingsModule
+    });
 // Debug logging function
     const debugLog = (message, data = null) => {
         const styles = 'background: #0066cc; color: white; padding: 2px 5px; border-radius: 3px;';
@@ -195,29 +209,34 @@
             }
         }
 
-// In main-script.js, inside the initializeModule function
         async initializeModule(moduleName) {
             try {
                 const windowModuleName = moduleName.split('-')
                     .map((part, index) => index === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1))
                     .join('') + 'Module';
 
-                console.log(`Attempting to initialize ${windowModuleName}`, {
-                    moduleExists: !!window[windowModuleName],
-                    hasInitialize: window[windowModuleName]?.initialize ? true : false
-                });
+                console.log(`Looking for module: ${windowModuleName}`);
+                console.log('Available window modules:', Object.keys(window).filter(key => key.includes('Module')));
 
                 const module = window[windowModuleName];
-                if (module && typeof module.initialize === 'function') {
-                    await module.initialize();
-                    this.loadedModules.set(moduleName, true);
-                    console.log(`Successfully initialized ${moduleName} module`);
-                } else {
-                    console.warn(`Module ${windowModuleName} not found or initialize method missing`);
+                if (!module) {
+                    console.error(`Module ${windowModuleName} not found on window object`);
+                    return;
                 }
+
+                if (typeof module.initialize !== 'function') {
+                    console.error(`Module ${windowModuleName} found but initialize method missing`);
+                    console.log('Module contents:', module);
+                    return;
+                }
+
+                await module.initialize();
+                this.loadedModules.set(moduleName, true);
+                console.log(`Successfully initialized ${moduleName} module`);
+
             } catch (error) {
                 console.error(`Failed to initialize ${moduleName}:`, error);
-                if (window.uiUtils && typeof window.uiUtils.showNotification === 'function') {
+                if (window.uiUtils) {
                     window.uiUtils.showNotification(
                         `Failed to initialize ${moduleName}. Some features may be unavailable.`,
                         'error'
