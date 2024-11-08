@@ -1,9 +1,24 @@
 const uiUtils = {
+    initialized: false,
+
     async initialize() {
+        if (this.initialized) return;
+
+        // Create the addStyles method if it doesn't exist
+        if (!this.addStyles) {
+            this.addStyles = function(styles) {
+                const styleSheet = document.createElement('style');
+                styleSheet.textContent = styles;
+                document.head.appendChild(styleSheet);
+            };
+        }
+
+        // Add global styles
         this.addGlobalStyles();
+        this.initialized = true;
     },
 
-    // Add the missing addStyles method
+    // Ensure addStyles method exists at the root level
     addStyles(styles) {
         const styleSheet = document.createElement('style');
         styleSheet.textContent = styles;
@@ -97,7 +112,6 @@ const uiUtils = {
         this.addStyles(styles);
     },
 
-    // Rest of the uiUtils methods remain the same...
     createPanel(options = {}) {
         const panel = document.createElement('div');
         panel.className = 'psm-panel';
@@ -153,10 +167,6 @@ const uiUtils = {
         };
     },
 
-    formatDate(date) {
-        return new Date(date).toLocaleString();
-    },
-
     createElement(type, options = {}) {
         const element = document.createElement(type);
 
@@ -186,4 +196,5 @@ const uiUtils = {
     }
 };
 
+// Ensure uiUtils is available globally
 window.uiUtils = uiUtils;
