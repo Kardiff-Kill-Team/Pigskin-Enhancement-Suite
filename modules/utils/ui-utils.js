@@ -3,6 +3,13 @@ const uiUtils = {
         this.addGlobalStyles();
     },
 
+    // Add the missing addStyles method
+    addStyles(styles) {
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = styles;
+        document.head.appendChild(styleSheet);
+    },
+
     addGlobalStyles() {
         const styles = `
             .psm-panel {
@@ -86,36 +93,11 @@ const uiUtils = {
             .psm-notification.error { background: #dc3545; }
             .psm-notification.warning { background: #ffc107; color: #000; }
             .psm-notification.info { background: #17a2b8; }
-
-            .psm-modal {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0,0,0,0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 1002;
-            }
-
-            .psm-modal-content {
-                background: white;
-                padding: 20px;
-                border-radius: 8px;
-                max-width: 500px;
-                width: 90%;
-                max-height: 90vh;
-                overflow-y: auto;
-            }
         `;
-
-        const styleSheet = document.createElement('style');
-        styleSheet.textContent = styles;
-        document.head.appendChild(styleSheet);
+        this.addStyles(styles);
     },
 
+    // Rest of the uiUtils methods remain the same...
     createPanel(options = {}) {
         const panel = document.createElement('div');
         panel.className = 'psm-panel';
@@ -146,10 +128,10 @@ const uiUtils = {
     createModal(content, options = {}) {
         const modal = document.createElement('div');
         modal.className = 'psm-modal';
-        
+
         const modalContent = document.createElement('div');
         modalContent.className = 'psm-modal-content';
-        
+
         if (typeof content === 'string') {
             modalContent.innerHTML = content;
         } else {
@@ -177,29 +159,29 @@ const uiUtils = {
 
     createElement(type, options = {}) {
         const element = document.createElement(type);
-        
+
         if (options.className) {
             element.className = options.className;
         }
-        
+
         if (options.text) {
             element.textContent = options.text;
         }
-        
+
         if (options.html) {
             element.innerHTML = options.html;
         }
-        
+
         if (options.attributes) {
             Object.entries(options.attributes).forEach(([key, value]) => {
                 element.setAttribute(key, value);
             });
         }
-        
+
         if (options.styles) {
             Object.assign(element.style, options.styles);
         }
-        
+
         return element;
     }
 };
