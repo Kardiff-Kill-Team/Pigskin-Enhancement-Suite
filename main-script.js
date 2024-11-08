@@ -195,19 +195,25 @@
             }
         }
 
+// In main-script.js, inside the initializeModule function
         async initializeModule(moduleName) {
             try {
                 const windowModuleName = moduleName.split('-')
                     .map((part, index) => index === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1))
                     .join('') + 'Module';
 
+                console.log(`Attempting to initialize ${windowModuleName}`, {
+                    moduleExists: !!window[windowModuleName],
+                    hasInitialize: window[windowModuleName]?.initialize ? true : false
+                });
+
                 const module = window[windowModuleName];
                 if (module && typeof module.initialize === 'function') {
                     await module.initialize();
                     this.loadedModules.set(moduleName, true);
-                    if (config.debug) {
-                        console.log(`Initialized ${moduleName} module`);
-                    }
+                    console.log(`Successfully initialized ${moduleName} module`);
+                } else {
+                    console.warn(`Module ${windowModuleName} not found or initialize method missing`);
                 }
             } catch (error) {
                 console.error(`Failed to initialize ${moduleName}:`, error);

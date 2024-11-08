@@ -192,4 +192,4 @@ const spreadsModule = {
     }
 };
 
-window['spreads-module'] = spreadsModule;
+window.spreadsModule = spreadsModule;

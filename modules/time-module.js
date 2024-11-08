@@ -8,12 +8,20 @@ const timeModule = {
         { label: 'Local', zone: Intl.DateTimeFormat().resolvedOptions().timeZone }
     ],
 
+// In time-module.js, modify the initialize method
     async initialize() {
+        // Wait for DOM content to be loaded
+        if (document.readyState !== 'complete') {
+            await new Promise(resolve => window.addEventListener('load', resolve));
+        }
+
         this.addStyles();
-        
+
         if (window.location.pathname.includes('spreads')) {
+            console.log('TimeModule: Setting up spreads page time controls');
             this.setupSpreadsPageTime();
         } else if (window.location.pathname.includes('fbpicks')) {
+            console.log('TimeModule: Setting up picks page time');
             await this.setupPicksPageTime();
         }
     },
@@ -80,25 +88,32 @@ const timeModule = {
         `);
     },
 
+// In time-module.js, modify the setupSpreadsPageTime method
+// In time-module.js, modify the setupSpreadsPageTime method
     setupSpreadsPageTime() {
+        console.log('Creating time zone panel');
         // Create time zone panel
         const panel = uiUtils.createElement('div', {
             className: 'psm-panel',
             styles: {
                 top: '20px',
-                right: '20px'
+                right: '20px',
+                zIndex: '1000', // Ensure it's visible
+                background: '#ffffff', // Make sure it has a background
+                padding: '10px',
+                border: '1px solid #ccc' // Make it visible for debugging
             }
         });
 
         panel.innerHTML = `
-            <div class="psm-panel-header">
-                <strong>Time Zones</strong>
-            </div>
-            <div class="psm-panel-content">
-                <div class="time-zone-buttons"></div>
-                <div id="current-time-display"></div>
-            </div>
-        `;
+        <div class="psm-panel-header">
+            <strong>Time Zones</strong>
+        </div>
+        <div class="psm-panel-content">
+            <div class="time-zone-buttons"></div>
+            <div id="current-time-display"></div>
+        </div>
+    `;
 
         // Add time zone buttons
         const buttonContainer = panel.querySelector('.time-zone-buttons');
@@ -112,6 +127,7 @@ const timeModule = {
             });
 
             button.addEventListener('click', (e) => {
+                console.log(`Time zone button clicked: ${label}`);
                 this.updateActiveTimeZone(e.target);
                 this.convertPageTimes(zone);
             });
@@ -119,7 +135,9 @@ const timeModule = {
             buttonContainer.appendChild(button);
         });
 
+        console.log('Appending time zone panel to document');
         document.body.appendChild(panel);
+        console.log('Time zone panel added');
 
         // Start current time display
         this.updateCurrentTimeDisplay();
