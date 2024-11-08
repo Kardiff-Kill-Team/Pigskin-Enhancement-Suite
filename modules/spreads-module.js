@@ -192,5 +192,8 @@ const spreadsModule = {
     }
 };
 
-// At the end of spreads-module.js
-window.spreadsModule = spreadsModule;  // Change this from window['spreads-module']
+// At the end of spreads-module.js - Change this to explicitly handle the window assignment
+if (typeof window !== 'undefined') {
+    window.spreadsModule = spreadsModule;
+    console.log('SpreadsModule attached to window:', !!window.spreadsModule);
+}
