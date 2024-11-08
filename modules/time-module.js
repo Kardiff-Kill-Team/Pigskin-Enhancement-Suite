@@ -1,4 +1,5 @@
 const timeModule = {
+    initialized: false,
     timeZones: [
         { label: 'ET', zone: 'America/New_York' },
         { label: 'CT', zone: 'America/Chicago' },
@@ -8,117 +9,149 @@ const timeModule = {
         { label: 'Local', zone: Intl.DateTimeFormat().resolvedOptions().timeZone }
     ],
 
-// In time-module.js, modify the initialize method
     async initialize() {
+        if (this.initialized) return;
+
+        // Wait for uiUtils to be available and initialized
+        if (!window.uiUtils?.initialized) {
+            await new Promise((resolve, reject) => {
+                const checkInterval = setInterval(() => {
+                    if (window.uiUtils?.initialized) {
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                }, 100);
+                // Add timeout after 10 seconds
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    reject(new Error('Timeout waiting for uiUtils initialization'));
+                }, 10000);
+            });
+        }
+
         // Wait for DOM content to be loaded
         if (document.readyState !== 'complete') {
             await new Promise(resolve => window.addEventListener('load', resolve));
         }
 
-        this.addStyles();
+        try {
+            await this.addStyles();
 
-        if (window.location.pathname.includes('spreads')) {
-            console.log('TimeModule: Setting up spreads page time controls');
-            this.setupSpreadsPageTime();
-        } else if (window.location.pathname.includes('fbpicks')) {
-            console.log('TimeModule: Setting up picks page time');
-            await this.setupPicksPageTime();
+            if (window.location.pathname.includes('spreads')) {
+                console.log('TimeModule: Setting up spreads page time controls');
+                await this.setupSpreadsPageTime();
+            } else if (window.location.pathname.includes('fbpicks')) {
+                console.log('TimeModule: Setting up picks page time');
+                await this.setupPicksPageTime();
+            }
+
+            this.initialized = true;
+        } catch (error) {
+            console.error('Time module initialization error:', error);
+            if (window.uiUtils?.showNotification) {
+                window.uiUtils.showNotification('Error initializing time module', 'error');
+            }
+            throw error;
         }
     },
 
-    addStyles() {
-        uiUtils.addStyles(`
-            .time-panel {
-                background: white;
-                border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                z-index: 1001;
-                padding: 10px;
-                margin-bottom: 10px;
-            }
+    async addStyles() {
+        try {
+            const styles = `
+                .time-panel {
+                    background: white;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    z-index: 1001;
+                    padding: 10px;
+                    margin-bottom: 10px;
+                }
 
-            .time-zone-buttons {
-                display: flex;
-                gap: 5px;
-                flex-wrap: wrap;
-                margin-bottom: 10px;
-            }
+                .time-zone-buttons {
+                    display: flex;
+                    gap: 5px;
+                    flex-wrap: wrap;
+                    margin-bottom: 10px;
+                }
 
-            .time-zone-btn {
-                padding: 5px 10px;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                cursor: pointer;
-                background: #f8f9fa;
-                transition: all 0.2s;
-            }
+                .time-zone-btn {
+                    padding: 5px 10px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    background: #f8f9fa;
+                    transition: all 0.2s;
+                }
 
-            .time-zone-btn.active {
-                background: #007bff;
-                color: white;
-                border-color: #0056b3;
-            }
+                .time-zone-btn.active {
+                    background: #007bff;
+                    color: white;
+                    border-color: #0056b3;
+                }
 
-            .time-zone-btn:hover {
-                background: #e9ecef;
-            }
+                .time-zone-btn:hover {
+                    background: #e9ecef;
+                }
 
-            .time-zone-btn.active:hover {
-                background: #0056b3;
-            }
+                .time-zone-btn.active:hover {
+                    background: #0056b3;
+                }
 
-            .game-time {
-                transition: background-color 0.3s;
-            }
+                .game-time {
+                    transition: background-color 0.3s;
+                }
 
-            .game-time.updated {
-                background-color: #fff3cd;
-            }
+                .game-time.updated {
+                    background-color: #fff3cd;
+                }
 
-            .game-time-warning {
-                color: #dc3545;
-                font-weight: bold;
-            }
+                .game-time-warning {
+                    color: #dc3545;
+                    font-weight: bold;
+                }
 
-            .countdown-timer {
-                font-size: 0.9em;
-                color: #6c757d;
-                margin-top: 5px;
-            }
-        `);
+                .countdown-timer {
+                    font-size: 0.9em;
+                    color: #6c757d;
+                    margin-top: 5px;
+                }
+            `;
+            await window.uiUtils.addStyles(styles);
+        } catch (error) {
+            console.error('Error adding styles:', error);
+            throw error;
+        }
     },
 
-// In time-module.js, modify the setupSpreadsPageTime method
-// In time-module.js, modify the setupSpreadsPageTime method
     setupSpreadsPageTime() {
         console.log('Creating time zone panel');
         // Create time zone panel
-        const panel = uiUtils.createElement('div', {
+        const panel = window.uiUtils.createElement('div', {
             className: 'psm-panel',
             styles: {
                 top: '20px',
                 right: '20px',
-                zIndex: '1000', // Ensure it's visible
-                background: '#ffffff', // Make sure it has a background
+                zIndex: '1000',
+                background: '#ffffff',
                 padding: '10px',
-                border: '1px solid #ccc' // Make it visible for debugging
+                border: '1px solid #ccc'
             }
         });
 
         panel.innerHTML = `
-        <div class="psm-panel-header">
-            <strong>Time Zones</strong>
-        </div>
-        <div class="psm-panel-content">
-            <div class="time-zone-buttons"></div>
-            <div id="current-time-display"></div>
-        </div>
-    `;
+            <div class="psm-panel-header">
+                <strong>Time Zones</strong>
+            </div>
+            <div class="psm-panel-content">
+                <div class="time-zone-buttons"></div>
+                <div id="current-time-display"></div>
+            </div>
+        `;
 
         // Add time zone buttons
         const buttonContainer = panel.querySelector('.time-zone-buttons');
         this.timeZones.forEach(({label, zone}) => {
-            const button = uiUtils.createElement('button', {
+            const button = window.uiUtils.createElement('button', {
                 className: 'time-zone-btn',
                 text: label,
                 attributes: {
@@ -148,7 +181,7 @@ const timeModule = {
     },
 
     async setupPicksPageTime() {
-        const spreadsData = await storageUtils.get('currentSpreads');
+        const spreadsData = await window.storageUtils.get('currentSpreads');
         if (!spreadsData) return;
 
         this.addGameTimeIndicators(spreadsData);
@@ -165,7 +198,7 @@ const timeModule = {
     },
 
     updateActiveTimeZone(clickedButton) {
-        document.querySelectorAll('.time-zone-btn').forEach(btn => 
+        document.querySelectorAll('.time-zone-btn').forEach(btn =>
             btn.classList.remove('active')
         );
         clickedButton.classList.add('active');
@@ -188,7 +221,7 @@ const timeModule = {
                 });
 
                 cell.textContent = `${converted} ${this.getTimeZoneAbbr(targetZone)}`;
-                
+
                 // Flash effect for updated time
                 cell.classList.add('updated');
                 setTimeout(() => cell.classList.remove('updated'), 1000);
@@ -222,8 +255,8 @@ const timeModule = {
         const display = document.getElementById('current-time-display');
         if (!display) return;
 
-        const activeZone = document.querySelector('.time-zone-btn.active')?.dataset.zone || 
-                          Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const activeZone = document.querySelector('.time-zone-btn.active')?.dataset.zone ||
+            Intl.DateTimeFormat().resolvedOptions().timeZone;
 
         const now = new Date().toLocaleTimeString('en-US', {
             timeZone: activeZone,
@@ -243,7 +276,7 @@ const timeModule = {
             const gameNumber = this.extractGameNumber(dropdown);
             if (!gameNumber) return;
 
-            const gameData = spreadsData.find(game => 
+            const gameData = spreadsData.find(game =>
                 game.team1.includes(this.getSelectedTeam(dropdown)) ||
                 game.team2.includes(this.getSelectedTeam(dropdown))
             );
@@ -297,7 +330,7 @@ const timeModule = {
 
     isLockDropdown(dropdown) {
         return dropdown.name?.toLowerCase().includes('lock') ||
-               dropdown.id?.toLowerCase().includes('lock');
+            dropdown.id?.toLowerCase().includes('lock');
     },
 
     extractGameNumber(dropdown) {
@@ -311,4 +344,5 @@ const timeModule = {
     }
 };
 
+// Make the module available globally
 window.timeModule = timeModule;

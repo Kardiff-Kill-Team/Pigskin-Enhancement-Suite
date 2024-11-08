@@ -1,6 +1,23 @@
-// modules/wikiTeamModule.js
+// modules/wiki-team-module.js
 const wikiTeamModule = {
     async initialize() {
+        // Wait for uiUtils to be available and initialized
+        if (!window.uiUtils?.initialized) {
+            await new Promise(resolve => {
+                const checkInterval = setInterval(() => {
+                    if (window.uiUtils?.initialized) {
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                }, 100);
+                // Add timeout after 10 seconds
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    throw new Error('Timeout waiting for uiUtils initialization');
+                }, 10000);
+            });
+        }
+
         this.teamAliases = null;
         this.config = {
             version: '1.0.0',
@@ -20,7 +37,9 @@ const wikiTeamModule = {
             }
         } catch (error) {
             console.error('Wiki Team Module initialization error:', error);
-            uiUtils.showNotification('Error loading team data', 'error');
+            if (window.uiUtils?.showNotification) {
+                window.uiUtils.showNotification('Error loading team data', 'error');
+            }
         }
     },
 
@@ -61,7 +80,7 @@ const wikiTeamModule = {
             if (currentData !== newDataString) {
                 this.teamAliases = newData;
                 await this.cacheTeamData(newData);
-                uiUtils.showNotification('Team data updated', 'info');
+                window.uiUtils.showNotification('Team data updated', 'info');
             }
         } catch (error) {
             console.error('Update check failed:', error);
@@ -84,16 +103,30 @@ const wikiTeamModule = {
 
     makeWikiRequest() {
         return new Promise((resolve, reject) => {
+            const url = 'https://en.wikipedia.org/w/api.php';
+            const params = new URLSearchParams({
+                action: 'parse',
+                format: 'json',
+                page: this.config.wikiPage,
+                prop: 'text',
+                origin: '*'
+            });
+
             GM.xmlHttpRequest({
                 method: 'GET',
-                url: `https://en.wikipedia.org/w/api.php?action=parse&format=json&page=${this.config.wikiPage}&prop=text&origin=*`,
+                url: `${url}?${params.toString()}`,
                 headers: {
+                    'Accept': 'application/json',
                     'Content-Type': 'application/json',
-                    'x-source': 'Pigskin-Enhancement-Suite',
-                    'x-version': this.config.version
+                    'Api-User-Agent': 'Pigskin-Enhancement-Suite/1.0.0'
                 },
                 onload: (response) => {
                     try {
+                        if (response.status !== 200) {
+                            reject(new Error(`Wikipedia API returned status ${response.status}`));
+                            return;
+                        }
+
                         const data = JSON.parse(response.responseText);
                         if (data.error) {
                             reject(new Error(data.error.info));
@@ -104,7 +137,10 @@ const wikiTeamModule = {
                         reject(e);
                     }
                 },
-                onerror: reject,
+                onerror: (error) => {
+                    console.error('Wiki request error:', error);
+                    reject(error);
+                },
                 ontimeout: () => reject(new Error('Request timed out'))
             });
         });
@@ -230,7 +266,7 @@ const wikiTeamModule = {
         });
 
         if (updated > 0) {
-            uiUtils.showNotification(`Standardized ${updated} team names`, 'success');
+            window.uiUtils.showNotification(`Standardized ${updated} team names`, 'success');
         }
     },
 
@@ -259,7 +295,7 @@ const wikiTeamModule = {
         });
 
         if (updated > 0) {
-            uiUtils.showNotification(`Standardized ${updated} team names in dropdowns`, 'success');
+            window.uiUtils.showNotification(`Standardized ${updated} team names in dropdowns`, 'success');
         }
     },
 
@@ -271,12 +307,10 @@ const wikiTeamModule = {
             .trim();
     },
 
-    // Utility method for other modules
     getOfficialName(teamName) {
         return this.findTeamMatch(teamName);
     },
 
-    // Debug method
     async diagnostics() {
         return {
             version: this.config.version,
@@ -288,3 +322,4 @@ const wikiTeamModule = {
 };
 
 window.wikiTeamModule = wikiTeamModule;
+
